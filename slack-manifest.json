@@ -1,7 +1,7 @@
 {
   "display_information": {
     "name": "Letta Ops",
-    "description": "Upgrade, restart and alert reports for the cornaca-copilot Letta server",
+    "description": "Upgrade, restart and alert reports for a self-hosted Letta Code server",
     "background_color": "#2c2d30"
   },
   "features": {
