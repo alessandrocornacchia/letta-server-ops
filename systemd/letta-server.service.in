@@ -1,0 +1,17 @@
+[Unit]
+Description=Letta Code Remote Environment
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=@USER@
+Group=@GROUP@
+Environment=HOME=@HOME@
+WorkingDirectory=@HOME@
+ExecStart=@NODE_BIN@/letta server --env-name @ENV_NAME@@CHANNELS_ARG@
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
