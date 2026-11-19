@@ -5,8 +5,9 @@
 #                             cloud listener is stuck reconnecting (>10 min)
 #   letta-maintain status  -> print a health summary
 #   letta-maintain test    -> send a test Slack message
-# Before any restart, background jobs left in the service's cgroup (e.g. experiments
-# launched by the agent) are moved to their own scope so the restart doesn't kill them.
+# The routine (upgrade) restart waits until no agent turn and no background job launched
+# by the agent (e.g. an experiment) is running. Only the stuck-listener restart doesn't
+# wait: it first moves such jobs to their own scope so the restart doesn't kill them.
 # Reports and alerts go to Slack and to $LOG. Settings come from $CONF (see env.example).
 set -uo pipefail
 
@@ -82,6 +83,12 @@ is_idle() {
   # An active agent turn shows up as a child of the letta server (claude, bash tools...)
   kids=$(ps -o args= --ppid "$mp" | grep -vc 'letta channel-gateway')
   if [ "$kids" -gt 0 ]; then log "busy: $kids child process(es) of letta"; return 1; fi
+  # Background jobs the agent launched (experiments etc.) also live in the service cgroup;
+  # a routine restart waits for them to finish rather than moving them aside
+  local keep jobs
+  keep=" $(descendants "$mp" | tr '\n' ' ') "
+  jobs=$(for p in $(cat "$CG/cgroup.procs"); do [[ "$keep" == *" $p "* ]] || echo "$p"; done | wc -l)
+  if [ "$jobs" -gt 0 ]; then log "busy: $jobs background job process(es) in $UNIT cgroup"; return 1; fi
   turns=$(journal_now --since "-${QUIET_MINS}min" -o cat | grep -cE 'status: (processing|receiving)')
   if [ "$turns" -gt 0 ]; then log "busy: turn activity in last ${QUIET_MINS} min"; return 1; fi
   return 0

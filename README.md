@@ -100,8 +100,8 @@ The thresholds live at the top of `letta-maintain.sh`: stuck timeout (10 min), q
 
 ### Every 15 minutes: `letta-maintain check`
 - **Stuck connection?** If the last listener event is `Reconnecting` with no `Connected` for more than 10 minutes, it restarts right away. Rate-limited to 1/hour and 3/day, so a bad detection can never cause a restart loop.
-- **Restart due and Letta idle?** If Letta has no running agent turn (no child processes, no `status: processing` for 10 min), it restarts.
-- **Before any restart**, background jobs in the service's cgroup that aren't part of Letta itself are moved into their own `letta-orphans-<timestamp>.scope`, so your experiments keep running.
+- **Restart due and Letta idle?** It restarts only when Letta has no running agent turn (no `status: processing` for 10 min) **and** no job the agent launched is still running, so long experiments simply delay the upgrade until they finish.
+- **Stuck restarts don't wait.** If jobs are still running when the connection is stuck, they're first moved into their own `letta-orphans-<timestamp>.scope`, so your experiments keep running.
 - **After a restart**, it waits for `Connected. Awaiting instructions.` and reports the result.
 
 ### What you'll see on Slack
@@ -115,7 +115,7 @@ The thresholds live at the top of `letta-maintain.sh`: stuck timeout (10 min), q
 | ⚠️ | npm upgrade failed |
 | ⚠️ | Log markers missing for 24 h: Letta's log format may have changed, so stuck detection is paused |
 | ⚠️ | 3 stuck-restarts in 24 h: stopped restarting, please look |
-| ⚠️ | Daily restart waiting 48 h for an idle moment |
+| ⚠️ | Daily restart waiting 48 h for an idle moment (e.g. a long experiment is still running) |
 | ❌ | Couldn't move background jobs out first, so the restart was skipped to protect them |
 
 Alerts are sent **once** and re-armed when the problem clears, so a lasting problem doesn't flood your DMs.
@@ -134,11 +134,5 @@ journalctl -u letta-server -f
 
 ## 💡 Tips
 
-- **Launch long experiments outside the service** so they never depend on the rescue step:
-  ```bash
-  sudo systemd-run --uid=$USER --gid=$(id -gn) --unit=my-exp --working-directory=$PWD ./run.sh
-  systemctl status my-exp; journalctl -u my-exp -f
-  ```
-  (`systemd-run --user` only works if your user manager is running, e.g. after `sudo loginctl enable-linger $USER`.)
 - **Updating letta-server-ops**: `git pull && ./install.sh --env-name … --channels …`
 - **Secrets never go in this repo.** `/etc/letta/.env` and `~/.config/letta-server-ops/env` stay on the machine.
