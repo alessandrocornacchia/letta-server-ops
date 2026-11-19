@@ -73,6 +73,14 @@ patch_engine() {  # patch_engine apply|status
   python3 -I "$PATCH_LIB" "$1" "$PATCH_DIR" "$(pkg_dir)" --disabled "${LETTA_PATCHES_DISABLED:-}"
 }
 
+# Active patches that ship an executable on-stopped hook: one-off data fixes that must run
+# while Letta is stopped, because the running process would overwrite its own files.
+stopped_hooks() {
+  patch_engine status 2>/dev/null | awk -F'\t' '$2 == "active" {print $1}' | while read -r id; do
+    [ -x "$PATCH_DIR/$id/on-stopped" ] && echo "$id"
+  done
+}
+
 # Re-apply local patches (an upgrade replaces the patched files) and alert on patches that
 # no longer apply or that upstream made obsolete. Newly applied patches need a restart.
 apply_patches() {
@@ -196,6 +204,14 @@ restart() {  # restart <emoji> <reason>
   RESCUED=""
   rescue_orphans || return 1
   log "restarting $UNIT: $2"
+  local hooks; hooks=$(stopped_hooks)
+  if [ -n "$hooks" ]; then
+    # Stop, run the hooks, start. A failing hook is logged but never blocks the start.
+    sudo -n systemctl stop $UNIT
+    for id in $hooks; do
+      timeout 120 "$PATCH_DIR/$id/on-stopped" >> "$LOG" 2>&1 || log "on-stopped hook of $id failed"
+    done
+  fi
   if ! sudo -n systemctl restart $UNIT; then
     notify ":x:" "Restart of $UNIT failed ($2). Check \`systemctl status $UNIT\`."
     return 1

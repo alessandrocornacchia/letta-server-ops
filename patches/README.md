@@ -39,6 +39,7 @@ patches/<id>/
   edits/01-something.find
   edits/01-something.replace
   ...
+  on-stopped        (optional, executable)
 ```
 
 `patch.json`:
@@ -54,6 +55,8 @@ patches/<id>/
   ]
 }
 ```
+
+A patch may also ship an executable `on-stopped` script for data fixes, such as backfilling a file the patched code reads. Letta keeps that state in memory and would overwrite the file, so the script only runs during `letta-maintain`'s restart, after Letta stops and before it starts again. It runs for active patches only, at most 120 s, and a failure is logged without blocking the start. Make it safe to run on every restart. `slack-thread-routes` uses one to fill in the topics of threads saved before the patch recorded them.
 
 Rules the engine (`lib/letta_patch.py`) enforces:
 

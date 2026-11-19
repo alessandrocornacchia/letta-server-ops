@@ -1,0 +1,85 @@
+#!/usr/bin/env python3
+"""Fill in Slack thread topics for routes saved before the patch tracked them.
+
+Runs while Letta is stopped (letta-maintain restart), so Letta cannot overwrite
+routing.json. For each Slack thread route without a topicPreview, it reads the
+thread from Slack: the root message becomes the topic, the latest message the
+latest preview and activity time. Routes that already have a topic are kept.
+"""
+
+import json
+import os
+import re
+import sys
+import tempfile
+import urllib.parse
+import urllib.request
+from datetime import datetime, timezone
+
+SLACK_DIR = os.path.join(os.environ.get("LETTA_CONFIG_DIR", os.path.expanduser("~/.letta")), "channels", "slack")
+ROUTES = os.path.join(SLACK_DIR, "routing.json")
+ACCOUNTS = os.path.join(SLACK_DIR, "accounts.json")
+
+
+def preview(text):
+    flat = re.sub(r"\s+", " ", text or "").strip()
+    return flat[:119] + "…" if len(flat) > 120 else flat
+
+
+def slack_replies(token, params):
+    url = "https://slack.com/api/conversations.replies?" + urllib.parse.urlencode(params)
+    req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        data = json.load(resp)
+    if not data.get("ok"):
+        raise RuntimeError(data.get("error", "unknown error"))
+    return data.get("messages", [])
+
+
+def main():
+    if not os.path.exists(ROUTES) or not os.path.exists(ACCOUNTS):
+        return 0
+    with open(ROUTES, encoding="utf-8") as f:
+        doc = json.load(f)
+    routes = doc.get("routes", []) if isinstance(doc, dict) else doc
+    with open(ACCOUNTS, encoding="utf-8") as f:
+        tokens = {a.get("accountId"): a.get("botToken") for a in json.load(f).get("accounts", [])}
+
+    filled = failed = 0
+    for route in routes:
+        if route.get("topicPreview") or not route.get("threadId") or route.get("chatType") == "direct":
+            continue
+        token = tokens.get(route.get("accountId"))
+        if not token:
+            continue
+        try:
+            messages = slack_replies(token, {"channel": route["chatId"], "ts": route["threadId"], "limit": 1000})
+        except Exception as err:  # keep going; a missing topic is harmless
+            print(f"slack-thread-routes: {route['chatId']}/{route['threadId']}: {err}", file=sys.stderr)
+            failed += 1
+            continue
+        if not messages:
+            continue
+        root, latest = messages[0], messages[-1]
+        if preview(root.get("text")):
+            route["topicPreview"] = preview(root.get("text"))
+        if preview(latest.get("text")):
+            route["lastMessagePreview"] = preview(latest.get("text"))
+        if not route.get("lastActivityAt"):
+            at = datetime.fromtimestamp(float(latest["ts"]), tz=timezone.utc)
+            route["lastActivityAt"] = at.isoformat(timespec="milliseconds").replace("+00:00", "Z")
+        filled += 1
+
+    if filled:
+        fd, tmp = tempfile.mkstemp(dir=SLACK_DIR, prefix=".routing-")
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(doc, f, indent=2)
+            f.write("\n")
+        os.chmod(tmp, os.stat(ROUTES).st_mode)
+        os.replace(tmp, ROUTES)
+    print(f"slack-thread-routes: topics filled for {filled} thread(s), {failed} failed")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
