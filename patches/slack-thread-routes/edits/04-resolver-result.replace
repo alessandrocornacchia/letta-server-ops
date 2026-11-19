@@ -2,8 +2,7 @@
       return {
         route: route2,
         transport: adapter,
-        messageActions: plugin.messageActions,
-        notice: lettaOpsRouteSelectionNotice(lettaOpsSelection)
+        messageActions: plugin.messageActions
       };
     },
     async resolveProactiveContext(params) {

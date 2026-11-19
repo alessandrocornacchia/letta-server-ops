@@ -6,7 +6,7 @@ Hotfixes for bugs in the installed `@letta-ai/letta-code` package, applied until
 
 | Patch | Fixes | Upstream |
 |---|---|---|
-| `slack-thread-routes` | `MessageChannel` fails with `No route for chat_id` when a conversation is attached to several Slack threads of one channel. It now uses the requested thread, or else the most recently active one, and says which. | branch `fix/slack-thread-route-selection` (PR pending) |
+| `slack-thread-routes` | `MessageChannel` fails with `No route for chat_id` when a conversation is attached to several Slack threads of one channel. Replies now go to the thread that triggered the turn. A message the agent sends on its own (schedules, reports) with no thread gets back the list of threads with their topics, so the agent picks one or starts a new thread. | branches `fix/slack-thread-route-selection`, `fix/slack-thread-choice` (PR pending) |
 
 ## States
 

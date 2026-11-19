@@ -1,0 +1,3 @@
+        ...normalized.threadId !== null ? { threadId: normalized.threadId } : {},
+        scope: options.scope
+      });

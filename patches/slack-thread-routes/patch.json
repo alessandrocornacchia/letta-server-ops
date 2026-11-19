@@ -1,6 +1,6 @@
 {
-  "description": "MessageChannel picks the requested or most recently active Slack thread when a conversation has several thread routes in one chat (fixes 'No route for chat_id').",
-  "upstream": "letta-ai/letta-code branch fix/slack-thread-route-selection (PR not opened yet)",
+  "description": "MessageChannel uses the requested or triggering Slack thread when a conversation has several thread routes in one chat; with no thread it asks the agent to pick one (listing topics) or start a new thread, instead of failing with 'No route for chat_id'.",
+  "upstream": "letta-ai/letta-code branches fix/slack-thread-route-selection + fix/slack-thread-choice (PR not opened yet)",
   "target": "letta.js",
   "obsolete_if": "resolveRouteForScope(",
   "edits": [
@@ -21,12 +21,32 @@
       "replace": "04-resolver-result.replace"
     },
     {
-      "find": "05-executor-notice.find",
-      "replace": "05-executor-notice.replace"
+      "find": "05-executor-route-thread.find",
+      "replace": "05-executor-route-thread.replace"
     },
     {
       "find": "06-inbound-activity.find",
       "replace": "06-inbound-activity.replace"
+    },
+    {
+      "find": "07-slack-inbound-activity.find",
+      "replace": "07-slack-inbound-activity.replace"
+    },
+    {
+      "find": "08-load-routes-override.find",
+      "replace": "08-load-routes-override.replace"
+    },
+    {
+      "find": "09-load-routes-disk.find",
+      "replace": "09-load-routes-disk.replace"
+    },
+    {
+      "find": "10-proactive-topic.find",
+      "replace": "10-proactive-topic.replace"
+    },
+    {
+      "find": "11-proactive-text.find",
+      "replace": "11-proactive-text.replace"
     }
   ]
 }

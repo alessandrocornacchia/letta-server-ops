@@ -1,0 +1,17 @@
+    const routes = readRoutes(channelId);
+    for (const route2 of routes) {
+      if (route2.chatId && route2.agentId && route2.conversationId) {
+        routesByKey.set(routeKey(channelId, route2.chatId, route2.accountId, route2.threadId), {
+          accountId: normalizeAccountId3(route2.accountId),
+          chatId: route2.chatId,
+          chatType: route2.chatType,
+          threadId: route2.threadId ?? null,
+          agentId: route2.agentId,
+          conversationId: route2.conversationId,
+          enabled: route2.enabled !== false,
+          outboundEnabled: route2.outboundEnabled !== false,
+          detached: route2.detached === true,
+          createdAt: route2.createdAt ?? new Date().toISOString(),
+          updatedAt: route2.updatedAt ?? route2.createdAt ?? new Date().toISOString(),
+          ...lettaOpsRouteActivityFields(route2)
+        });

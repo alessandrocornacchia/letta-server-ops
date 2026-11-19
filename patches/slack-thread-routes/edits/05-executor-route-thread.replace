@@ -1,0 +1,3 @@
+        ...(lettaOpsRouteThreadId(normalized, options, accountId) ?? null) !== null ? { threadId: lettaOpsRouteThreadId(normalized, options, accountId) } : {},
+        scope: options.scope
+      });

@@ -1,5 +1,6 @@
   getRouteForScope(channel, chatId, agentId, conversationId, accountId, threadId) {
-    return this.resolveRouteForScope(channel, chatId, agentId, conversationId, accountId, threadId)?.route ?? null;
+    const lettaOpsSelection = this.resolveRouteForScope(channel, chatId, agentId, conversationId, accountId, threadId);
+    return lettaOpsSelection?.kind === "route" ? lettaOpsSelection.route : null;
   }
   resolveRouteForScope(channel, chatId, agentId, conversationId, accountId, threadId) {
     const normalizedAccountId = accountId?.trim();

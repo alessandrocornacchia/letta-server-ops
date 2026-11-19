@@ -1,4 +1,0 @@
-      const lettaOpsResult = await dispatchWithIdempotency(request6, context4, options.idempotencyScope);
-      return context4.notice && !lettaOpsResult.startsWith("Error:") ? lettaOpsResult + context4.notice : lettaOpsResult;
-    }
-    if (normalized.channel !== "slack") {

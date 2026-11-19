@@ -1,0 +1,7 @@
+      createdAt: now2,
+      updatedAt: now2,
+      lastActivityAt: now2,
+      ...lettaOpsRoutePreview(params.text) ? { topicPreview: lettaOpsRoutePreview(params.text), lastMessagePreview: lettaOpsRoutePreview(params.text) } : {}
+    });
+  } catch (error4) {
+    removeRouteInMemory("slack", params.chatId, params.accountId, params.rootMessageId);
