@@ -96,9 +96,11 @@ The thresholds live at the top of `letta-maintain.sh`: stuck timeout (10 min), q
 
 ### Every day at 02:00 UTC: `letta-maintain daily`
 - Upgrades `@letta-ai/letta-code` to the latest version.
+- Re-applies the [local patches](#local-patches), since the upgrade replaces the patched files.
 - Marks a restart as due, so the new version actually gets loaded.
 
 ### Every 15 minutes: `letta-maintain check`
+- **Patches still in place?** If Letta was upgraded by hand, the local patches are re-applied and a restart is scheduled.
 - **Stuck connection?** If the last listener event is `Reconnecting` with no `Connected` for more than 10 minutes, it restarts right away. Rate-limited to 1/hour and 3/day, so a bad detection can never cause a restart loop.
 - **Restart due and Letta idle?** It restarts only when Letta has no running agent turn (no `status: processing` for 10 min) **and** no job the agent launched is still running, so long experiments simply delay the upgrade until they finish.
 - **Stuck restarts don't wait.** If jobs are still running when the connection is stuck, they're first moved into their own `letta-orphans-<timestamp>.scope`, so your experiments keep running.
@@ -117,18 +119,25 @@ The thresholds live at the top of `letta-maintain.sh`: stuck timeout (10 min), q
 | ⚠️ | 3 stuck-restarts in 24 h: stopped restarting, please look |
 | ⚠️ | Daily restart waiting 48 h for an idle moment (e.g. a long experiment is still running) |
 | ❌ | Couldn't move background jobs out first, so the restart was skipped to protect them |
+| ⚠️ | A local patch no longer applies to the new Letta version; Letta runs without it |
+| ℹ️ | Letta now includes the fix from a local patch; the patch can be deleted |
 
 Alerts are sent **once** and re-armed when the problem clears, so a lasting problem doesn't flood your DMs.
 
 ### Handy commands
 
 ```bash
-letta-maintain status    # health summary: version, listener, idle, pending restart, Slack
+letta-maintain status    # health summary: version, listener, idle, pending restart, Slack, patches
+letta-maintain patches   # apply local patches now and list their state
 letta-maintain test      # send a test Slack message
 letta-maintain check     # run the 15-min check now
 tail -f ~/.letta/maintain/maintain.log
 journalctl -u letta-server -f
 ```
+
+### Local patches
+
+Sometimes a Letta bug needs fixing before Letta ships the fix. [`patches/`](patches/) holds small hotfixes for the installed `letta-code` package. Each one is applied only if its target code matches exactly, so a patch never half-applies to a changed version; instead you get an alert. Disable one with `LETTA_PATCHES_DISABLED=<id>` in your settings. See [patches/README.md](patches/README.md) for the current patches and how to write a new one.
 
 ---
 

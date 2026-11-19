@@ -1,0 +1,3 @@
+      return await dispatchWithIdempotency(request6, context4, options.idempotencyScope);
+    }
+    if (normalized.channel !== "slack") {

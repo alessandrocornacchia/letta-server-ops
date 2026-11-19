@@ -3,11 +3,14 @@
 #   letta-maintain daily   -> upgrade @letta-ai/letta-code, then request a restart
 #   letta-maintain check   -> restart if requested and Letta is idle, or if the
 #                             cloud listener is stuck reconnecting (>10 min)
+#   letta-maintain patches -> apply local hotfix patches now and show their state
 #   letta-maintain status  -> print a health summary
 #   letta-maintain test    -> send a test Slack message
 # The routine (upgrade) restart waits until no agent turn and no background job launched
 # by the agent (e.g. an experiment) is running. Only the stuck-listener restart doesn't
 # wait: it first moves such jobs to their own scope so the restart doesn't kill them.
+# Local hotfix patches (patches/<id>/) are re-applied after every upgrade and checked every
+# run; a patch that no longer applies or that Letta made obsolete triggers a Slack alert.
 # Reports and alerts go to Slack and to $LOG. Settings come from $CONF (see env.example).
 set -uo pipefail
 
@@ -28,6 +31,9 @@ STUCK_MIN_GAP=3600                   # at most one stuck restart per hour
 STUCK_MAX_PER_DAY=3
 MARKER_GRACE=86400                   # warn if no listener markers after 24h of uptime
 PENDING_WARN=172800                  # warn if daily restart blocked for 48h
+SHARE=${LETTA_OPS_SHARE:-$HOME/.local/share/letta-server-ops}
+PATCH_DIR=$SHARE/patches
+PATCH_LIB=$SHARE/lib/letta_patch.py
 mkdir -p "$STATE"
 
 exec 9>"$STATE/lock"
@@ -61,6 +67,39 @@ set_pending() {
 }
 
 version() { letta --version 2>/dev/null | awk '{print $1}'; }
+pkg_dir() { echo "$(npm root -g 2>/dev/null)/@letta-ai/letta-code"; }
+
+patch_engine() {  # patch_engine apply|status
+  python3 -I "$PATCH_LIB" "$1" "$PATCH_DIR" "$(pkg_dir)" --disabled "${LETTA_PATCHES_DISABLED:-}"
+}
+
+# Re-apply local patches (an upgrade replaces the patched files) and alert on patches that
+# no longer apply or that upstream made obsolete. Newly applied patches need a restart.
+apply_patches() {
+  [ -f "$PATCH_LIB" ] && [ -d "$PATCH_DIR" ] || return 0
+  local out id status ver detail applied=""
+  if ! out=$(patch_engine apply 2>&1); then
+    alert_once patch-engine "Local patch engine failed: $(echo "$out" | tail -1)"
+    return 0
+  fi
+  clear_alert patch-engine
+  while IFS=$'\t' read -r id status ver detail; do
+    [ -n "$id" ] || continue
+    case "$status" in
+      applied)
+        log "patch $id applied to letta-code $ver"; applied="$applied $id"; clear_alert "patch-broken-$id" ;;
+      active|disabled)
+        clear_alert "patch-broken-$id" ;;
+      broken)
+        alert_once "patch-broken-$id" "Local patch \`$id\` no longer applies to Letta $ver ($detail). Letta runs without it until the patch is updated in letta-server-ops." ;;
+      obsolete)
+        [ -f "$STATE/alerted-patch-obsolete-$id" ] || { touch "$STATE/alerted-patch-obsolete-$id"
+          notify ":information_source:" "Letta $ver already includes the fix from local patch \`$id\`. It is skipped; you can delete patches/$id from letta-server-ops."; } ;;
+    esac
+  done <<< "$out"
+  [ -n "$applied" ] && { [ -f "$PENDING" ] || set_pending "local patch(es) applied:$applied"; }
+  return 0
+}
 main_pid() { systemctl show -p MainPID --value $UNIT; }
 uptime_secs() {
   local t; t=$(systemctl show -p ActiveEnterTimestampMonotonic --value $UNIT)
@@ -185,12 +224,14 @@ case "${1:-}" in
         [ -f "$PENDING" ] || set_pending "version unchanged ($after)"
       fi
       clear_alert upgrade
+      apply_patches
     else
       alert_once upgrade "Letta upgrade failed (npm). See ~/.letta/maintain/maintain.log. Still on $before."
       [ -f "$PENDING" ] || set_pending "upgrade failed, still $before"
     fi
     ;;
   check)
+    apply_patches
     if is_stuck; then
       stuck_restart_allowed && { date +%s >> "$RESTARTS"; restart ":rotating_light:" "listener was stuck reconnecting for >$((STUCK_SECS / 60)) min"; }
     else
@@ -215,10 +256,16 @@ case "${1:-}" in
     echo "pending:     $(cat "$PENDING" 2>/dev/null || echo none)"
     echo "other procs: $(( $(wc -l < "$CG/cgroup.procs") - $(descendants "$(main_pid)" | wc -l) )) in $UNIT cgroup outside letta's own tree"
     echo "slack:       $([ -n "${SLACK_BOT_TOKEN:-}" ] && echo configured || echo NOT configured)"
+    [ -f "$PATCH_LIB" ] && patch_engine status 2>&1 | while IFS=$'\t' read -r id st _ detail; do
+      printf 'patch:       %s %s%s\n' "$id" "$st" "${detail:+ ($detail)}"; done
     echo "log:         $LOG"
+    ;;
+  patches)
+    apply_patches
+    patch_engine status | column -t -s $'\t'
     ;;
   test)
     notify ":wave:" "Test message from letta-maintain.sh. Notifications are working."
     ;;
-  *) echo "usage: $0 daily|check|status|test" >&2; exit 2 ;;
+  *) echo "usage: $0 daily|check|patches|status|test" >&2; exit 2 ;;
 esac

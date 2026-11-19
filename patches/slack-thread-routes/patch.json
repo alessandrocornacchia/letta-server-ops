@@ -1,0 +1,32 @@
+{
+  "description": "MessageChannel picks the requested or most recently active Slack thread when a conversation has several thread routes in one chat (fixes 'No route for chat_id').",
+  "upstream": "letta-ai/letta-code branch fix/slack-thread-route-selection (PR not opened yet)",
+  "target": "letta.js",
+  "obsolete_if": "resolveRouteForScope(",
+  "edits": [
+    {
+      "find": "01-routing-helpers.find",
+      "replace": "01-routing-helpers.replace"
+    },
+    {
+      "find": "02-registry-scope-lookup.find",
+      "replace": "02-registry-scope-lookup.replace"
+    },
+    {
+      "find": "03-resolver-lookup.find",
+      "replace": "03-resolver-lookup.replace"
+    },
+    {
+      "find": "04-resolver-result.find",
+      "replace": "04-resolver-result.replace"
+    },
+    {
+      "find": "05-executor-notice.find",
+      "replace": "05-executor-notice.replace"
+    },
+    {
+      "find": "06-inbound-activity.find",
+      "replace": "06-inbound-activity.replace"
+    }
+  ]
+}

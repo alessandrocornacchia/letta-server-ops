@@ -1,0 +1,8 @@
+  getRouteForScope(channel, chatId, agentId, conversationId, accountId, threadId) {
+    return this.resolveRouteForScope(channel, chatId, agentId, conversationId, accountId, threadId)?.route ?? null;
+  }
+  resolveRouteForScope(channel, chatId, agentId, conversationId, accountId, threadId) {
+    const normalizedAccountId = accountId?.trim();
+    const matches3 = getRoutesForChannel(channel).filter((route2) => route2.chatId === chatId && route2.agentId === agentId && route2.conversationId === conversationId && route2.outboundEnabled !== false && (!normalizedAccountId || (route2.accountId ?? LEGACY_CHANNEL_ACCOUNT_ID) === normalizedAccountId) && route2.enabled);
+    return lettaOpsSelectRouteForScope(matches3, threadId);
+  }

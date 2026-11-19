@@ -1,0 +1,3 @@
+      const route2 = registry3.getRouteForScope(params.channel, params.chatId, params.scope.agentId, params.scope.conversationId, params.accountId);
+      if (!route2)
+        return null;

@@ -1,0 +1,4 @@
+      const lettaOpsSelection = registry3.resolveRouteForScope(params.channel, params.chatId, params.scope.agentId, params.scope.conversationId, params.accountId, params.threadId);
+      if (!lettaOpsSelection)
+        return null;
+      const route2 = lettaOpsSelection.route;

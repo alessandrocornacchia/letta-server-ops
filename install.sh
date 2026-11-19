@@ -12,6 +12,7 @@ FORCE_UNIT=0
 UNIT=letta-server
 BIN_DIR=$HOME/.local/bin
 CONF_DIR=$HOME/.config/letta-server-ops
+SHARE_DIR=$HOME/.local/share/letta-server-ops
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -89,6 +90,13 @@ step "letta-maintain script"
 run install -D -m 755 "$REPO/letta-maintain.sh" "$BIN_DIR/letta-maintain"
 say "✓ $BIN_DIR/letta-maintain"
 
+step "Local patches ($SHARE_DIR)"
+# Replace the installed copy wholesale so patches deleted from the repo disappear too
+run rm -rf -- "${SHARE_DIR:?}/lib" "${SHARE_DIR:?}/patches"
+run mkdir -p "$SHARE_DIR"
+run cp -r "$REPO/lib" "$REPO/patches" "$SHARE_DIR/"
+say "✓ $(find "$REPO/patches" -mindepth 2 -maxdepth 2 -name patch.json | wc -l) patch(es) installed; applied by letta-maintain (run: letta-maintain patches)"
+
 step "Configuration ($CONF_DIR/env)"
 run mkdir -p "$CONF_DIR"
 if [ ! -f "$CONF_DIR/env" ]; then
@@ -103,6 +111,8 @@ if [ ! -f "$CONF_DIR/env" ]; then
   say "✓ created $CONF_DIR/env"
 fi
 if [ $DRY = 0 ]; then
+  # add settings introduced after this config was created
+  grep -q '^LETTA_PATCHES_DISABLED=' "$CONF_DIR/env" || printf '\n# Local patches to skip, comma-separated patch ids\nLETTA_PATCHES_DISABLED=\n' >> "$CONF_DIR/env"
   sed -i -e "s|^LETTA_UNIT=.*|LETTA_UNIT=$UNIT|" -e "s|^LETTA_NODE_BIN=.*|LETTA_NODE_BIN=$NODE_BIN|" "$CONF_DIR/env"
   grep -qE '^SLACK_BOT_TOKEN=.+' "$CONF_DIR/env" || say "ℹ Slack not configured yet: see README → Configure"
 fi

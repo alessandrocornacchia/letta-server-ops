@@ -1,0 +1,50 @@
+function clearAllRoutes() {
+  routesByKey.clear();
+}
+// letta-server-ops slack-thread-routes: per-route activity and thread selection
+function lettaOpsRouteActivityTime(route) {
+  for (const value of [route.lastActivityAt, route.updatedAt, route.createdAt]) {
+    const time = value ? Date.parse(value) : Number.NaN;
+    if (!Number.isNaN(time))
+      return time;
+  }
+  return 0;
+}
+function lettaOpsRecordRouteActivity(channelId, route, at = new Date) {
+  try {
+    const key = routeKey(channelId, route.chatId, route.accountId, route.threadId);
+    const current = routesByKey.get(key);
+    if (!current)
+      return;
+    routesByKey.set(key, { ...current, lastActivityAt: at.toISOString() });
+    const persisted = globalThis.__lettaOpsRouteActivityPersistedAt ??= new Map;
+    const last = persisted.get(key);
+    if (last === undefined || at.getTime() - last >= 60000) {
+      persisted.set(key, at.getTime());
+      saveRoutes(channelId);
+    }
+  } catch {}
+}
+function lettaOpsSelectRouteForScope(candidates, threadId) {
+  if (candidates.length === 0)
+    return null;
+  if (threadId !== undefined && threadId !== null) {
+    const exact = candidates.filter((route) => (route.threadId ?? null) === threadId);
+    if (exact.length === 1)
+      return { route: exact[0], reason: "requested-thread", candidateCount: candidates.length };
+    if (exact.length === 0 && candidates.length > 1)
+      return null;
+  }
+  if (candidates.length === 1)
+    return { route: candidates[0], reason: "only-route", candidateCount: 1 };
+  if (new Set(candidates.map((route) => route.accountId ?? null)).size > 1)
+    return null;
+  const latest = candidates.reduce((best, route) => lettaOpsRouteActivityTime(route) > lettaOpsRouteActivityTime(best) ? route : best);
+  return { route: latest, reason: "most-recent-activity", candidateCount: candidates.length };
+}
+function lettaOpsRouteSelectionNotice(selection) {
+  if (selection.reason !== "most-recent-activity")
+    return;
+  return `
+Routed to thread ${selection.route.threadId ?? "(no thread)"}, the most recently active of ${selection.candidateCount} threads in this conversation. Pass threadId to choose another.`;
+}

@@ -1,0 +1,2 @@
+    lettaOpsRecordRouteActivity(msg.channel, route2);
+    const preparedMessage = adapter.prepareInboundMessage ? await adapter.prepareInboundMessage(msg, { isFirstRouteTurn: false }) : msg;
